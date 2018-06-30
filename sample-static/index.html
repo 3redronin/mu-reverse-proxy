@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta charset="UTF-8">
+    <title>Sample Website</title>
+    <link rel="stylesheet" href="sample.css">
+</head>
+<body>
+
+<header>
+    <h1>Sample Website</h1>
+    <nav>
+        <a href="/">Home</a>
+    </nav>
+
+</header>
+
+<main>
+
+    <h2>File Upload</h2>
+    <form action="/upload" method="post" enctype="multipart/form-data">
+
+        <input type="text" name="blah" value="ha">
+        <input type="text" name="blah2" value="ha2">
+        <input type="file" name="theFile">
+        <input type="text" name="bla h3  " value="ha ha3">
+
+        <label><input type="checkbox" name="ticked"> Option</label>
+        <input type="submit">
+
+    </form>
+
+    <h2>Sample header</h2>
+    <p>Sample content</p>
+    <div>
+        <img src="images/guangzhou.jpeg" alt="Guangzhou!">
+        <br>
+        <br>
+        <img src="images/friends.jpg" alt="Friends">
+    </div>
+</main>
+
+
+
+<footer>
+    <a href="https://github.com/3redronin/mu-server">Source on GitHub</a>
+</footer>
+
+</body>
+</html>
