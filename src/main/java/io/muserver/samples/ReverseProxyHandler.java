@@ -91,9 +91,22 @@ public class ReverseProxyHandler implements MuHandler {
                 }
             }));
         targetReq.send(result -> {
-            long duration = System.currentTimeMillis() - start;
-            log.info("[" + id + "] completed in " + duration + "ms: " + result);
-            asyncHandle.complete();
+            try {
+                long duration = System.currentTimeMillis() - start;
+                if (result.isFailed()) {
+                    String errorID = UUID.randomUUID().toString();
+                    log.error("Failed to proxy response. ErrorID=" + errorID + " for " + result, result.getFailure());
+                    if (result.isFailed() && !clientResp.hasStartedSendingData()) {
+                        clientResp.status(502);
+                        clientResp.contentType(ContentTypes.TEXT_HTML);
+                        clientResp.write("<h1>502 Bad Gateway</h1><p>ErrorID=" + errorID + "</p>");
+                    }
+                } else {
+                    log.info("[" + id + "] completed in " + duration + "ms: " + result);
+                }
+            } finally {
+                asyncHandle.complete();
+            }
         });
 
         return true;
