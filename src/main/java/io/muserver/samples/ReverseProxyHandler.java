@@ -10,10 +10,10 @@ import org.eclipse.jetty.http.HttpFields;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static java.util.Arrays.asList;
@@ -90,6 +90,8 @@ public class ReverseProxyHandler implements MuHandler {
                     callback.succeeded();
                 }
             }));
+
+        targetReq.timeout(1, TimeUnit.MINUTES);
         targetReq.send(result -> {
             try {
                 long duration = System.currentTimeMillis() - start;
@@ -112,7 +114,7 @@ public class ReverseProxyHandler implements MuHandler {
         return true;
     }
 
-    private boolean setHeaders(MuRequest clientReq, Request targetReq) {
+    private static boolean setHeaders(MuRequest clientReq, Request targetReq) {
         List<String> customHopByHop = new ArrayList<>();
         String connection = clientReq.headers().get(HttpHeaderNames.CONNECTION);
         if (connection != null) {
