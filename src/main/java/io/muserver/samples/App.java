@@ -47,13 +47,13 @@ public class App {
         MuServer reverseProxy = muServer()
             .withHttpPort(20000)
             .addShutdownHook(true)
-            .addHandler(new ReverseProxyHandler(createClient(), target.uri()))
+            .addHandler(new ReverseProxyHandler(clientSuitableForProxyingRequests(), target.uri()))
             .start();
 
         log.info("Reverse proxy started at " + reverseProxy.uri());
     }
 
-    private static HttpClient createClient() throws Exception {
+    static HttpClient clientSuitableForProxyingRequests() throws Exception {
 
         int selectors = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
 

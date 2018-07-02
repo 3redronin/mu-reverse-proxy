@@ -7,9 +7,11 @@ import org.eclipse.jetty.client.api.Request;
 import org.eclipse.jetty.client.util.DeferredContentProvider;
 import org.eclipse.jetty.http.HttpField;
 import org.eclipse.jetty.http.HttpFields;
+import org.eclipse.jetty.http.HttpHeader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.InetAddress;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.*;
@@ -70,12 +72,13 @@ public class ReverseProxyHandler implements MuHandler {
         targetReq.onResponseHeaders(response -> {
             clientResp.status(response.getStatus());
             HttpFields targetRespHeaders = response.getHeaders();
+            List<String> customHopByHopHeaders = getCustomHopByHopHeaders(targetRespHeaders.get(HttpHeader.CONNECTION));
             for (HttpField targetRespHeader : targetRespHeaders) {
                 String lowerName = targetRespHeader.getName().toLowerCase();
-                if (HOP_BY_HOP_HEADERS.contains(lowerName)) {
+                if (HOP_BY_HOP_HEADERS.contains(lowerName) || customHopByHopHeaders.contains(lowerName)) {
                     continue;
                 }
-                clientResp.headers().add(targetRespHeader.getName(), asList(targetRespHeader.getValues()));
+                clientResp.headers().add(targetRespHeader.getName(), targetRespHeader.getValue());
             }
         });
         targetReq.onResponseContentAsync((response, content, callback) -> asyncHandle.write(content,
@@ -115,17 +118,11 @@ public class ReverseProxyHandler implements MuHandler {
     }
 
     private static boolean setHeaders(MuRequest clientReq, Request targetReq) {
-        List<String> customHopByHop = new ArrayList<>();
-        String connection = clientReq.headers().get(HttpHeaderNames.CONNECTION);
-        if (connection != null) {
-            String[] split = connection.split(" *, *");
-            for (String s : split) {
-                customHopByHop.add(s.toLowerCase());
-            }
-        }
+        Headers reqHeaders = clientReq.headers();
+        List<String> customHopByHop = getCustomHopByHopHeaders(reqHeaders.get(HttpHeaderNames.CONNECTION));
 
         boolean hasContentLengthOrTransferEncoding = false;
-        for (Map.Entry<String, String> clientHeader : clientReq.headers()) {
+        for (Map.Entry<String, String> clientHeader : reqHeaders) {
             String key = clientHeader.getKey();
             String lowKey = key.toLowerCase();
             if (HOP_BY_HOP_HEADERS.contains(lowKey) || customHopByHop.contains(lowKey)) {
@@ -137,15 +134,15 @@ public class ReverseProxyHandler implements MuHandler {
         String proto = clientReq.uri().getScheme();
         String originHost = clientReq.uri().getAuthority();
 
-        targetReq.header("Via", "http://1.1 murp");
+        targetReq.header("Via", "HTTP/1.1 murp");
         targetReq.header("X-Forwarded-Proto", null);
         targetReq.header("X-Forwarded-Proto", proto);
         targetReq.header("X-Forwarded-Host", null);
         targetReq.header("X-Forwarded-Host", originHost);
         targetReq.header("X-Forwarded-Server", null);
 
-        String murpForwarded = "host=" + originHost + "; proto=" + proto;
-        String curFowarded = clientReq.headers().get("Forwarded", null);
+        String murpForwarded = "by=" + ipAddress + "; for=" + clientReq.remoteAddress() + "; host=" + originHost + "; proto=" + proto;
+        String curFowarded = reqHeaders.get("Forwarded", null);
         if (curFowarded != null) {
             murpForwarded = curFowarded + ", " + murpForwarded;
         }
@@ -153,5 +150,30 @@ public class ReverseProxyHandler implements MuHandler {
         targetReq.header("Forwarded", murpForwarded);
 
         return hasContentLengthOrTransferEncoding;
+    }
+
+    private static List<String> getCustomHopByHopHeaders(String connectionHeaderValue) {
+        if (connectionHeaderValue == null) {
+            return Collections.emptyList();
+        }
+        List<String> customHopByHop = new ArrayList<>();
+        String[] split = connectionHeaderValue.split(" *, *");
+        for (String s : split) {
+            customHopByHop.add(s.toLowerCase());
+        }
+        return customHopByHop;
+    }
+
+
+    static final String ipAddress;
+
+    static {
+        String ip;
+        try {
+            ip = InetAddress.getLocalHost().getHostAddress();
+        } catch (Exception e) {
+            ip = "127.0.0.1";
+        }
+        ipAddress = ip;
     }
 }
